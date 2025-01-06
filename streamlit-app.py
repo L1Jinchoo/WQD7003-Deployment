@@ -1,21 +1,18 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 from sklearn.preprocessing import LabelEncoder
 
-# Load the model
 @st.cache_resource
 def load_model():
     return joblib.load('breast_cancer_rf_model.joblib')
 
 def preprocess_data(df):
-    # Define columns to encode
+    # 标签编码
     ordered_columns = ['T Stage', 'Grade', 'N Stage', '6th Stage', 
                       'Estrogen Status', 'Progesterone Status', 'A Stage']
-    unordered_columns = ['Race', 'Marital Status']
-    
-    # Apply Label Encoding for ordered columns
     label_encoders = {}
     for col in ordered_columns:
         if col in df.columns:
@@ -23,13 +20,37 @@ def preprocess_data(df):
             df[col] = le.fit_transform(df[col])
             label_encoders[col] = le
     
-    # Apply One-Hot Encoding for unordered columns
-    df = pd.get_dummies(df, columns=unordered_columns, drop_first=False, dtype=int)
+    # 独热编码
+    # 确保生成所有可能的类别
+    race_categories = ['Race_Black', 'Race_Other', 'Race_White']
+    marital_categories = ['Marital Status_Divorced', 'Marital Status_Married',
+                         'Marital Status_Separated', 'Marital Status_Single',
+                         'Marital Status_Widowed']
     
-    # Drop unnecessary columns
+    # 进行独热编码
+    df = pd.get_dummies(df, columns=['Race', 'Marital Status'], dtype=int)
+    
+    # 添加缺失的类别列，填充0
+    for cat in race_categories:
+        if cat not in df.columns:
+            df[cat] = 0
+            
+    for cat in marital_categories:
+        if cat not in df.columns:
+            df[cat] = 0
+    
+    # 删除不需要的列
     columns_to_drop = ['Regional Node Examined', 'Regional Node Positive', 
                       'Differentiate', 'Tumor Size (mm)', 'Survival Months']
     df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
+    
+    # 确保列的顺序与训练时一致
+    expected_columns = ['Age', 'T Stage', 'N Stage', '6th Stage', 'Grade', 
+                       'A Stage', 'Estrogen Status', 'Progesterone Status'] + \
+                      race_categories + marital_categories
+    
+    # 只选择需要的列，并按照预期顺序排列
+    df = df[expected_columns]
     
     return df
 
@@ -42,30 +63,32 @@ def main():
     st.title('Breast Cancer Survival Prediction')
     st.write('Upload a CSV file with patient data to predict survival probability')
     
-    # File upload
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
     
     if uploaded_file is not None:
         try:
-            # Read the CSV file
             input_df = pd.read_csv(uploaded_file)
             
-            # Preprocess data
-            processed_df = preprocess_data(input_df)
+            # 确保必需的列存在
+            required_columns = ['Age', 'Race', 'Marital Status', 'T Stage', 
+                              'N Stage', '6th Stage', 'Grade', 'A Stage',
+                              'Estrogen Status', 'Progesterone Status']
             
-            # Make prediction
+            missing_cols = set(required_columns) - set(input_df.columns)
+            if missing_cols:
+                st.error(f"Missing required columns: {', '.join(missing_cols)}")
+                return
+            
+            processed_df = preprocess_data(input_df)
             predictions = predict_survival(processed_df)
             
-            # Add predictions to dataframe
             results_df = input_df.copy()
             results_df['Survival Probability'] = predictions[:, 1]
             results_df['Death Probability'] = predictions[:, 0]
             
-            # Display results
             st.subheader('Prediction Results')
             st.dataframe(results_df)
             
-            # Download results
             csv = results_df.to_csv(index=False)
             st.download_button(
                 label="Download predictions as CSV",
@@ -77,21 +100,12 @@ def main():
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
     
-    # Sample file format
     st.sidebar.subheader("Required Input Format")
-    st.sidebar.write("""
-    Your CSV file should contain these columns:
-    - Age
-    - Race
-    - Marital Status 
-    - T Stage
-    - N Stage
-    - 6th Stage
-    - Grade
-    - A Stage
-    - Estrogen Status
-    - Progesterone Status
-    """)
+    st.sidebar.write("Your CSV file should contain these columns:")
+    for col in ['Age', 'Race', 'Marital Status', 'T Stage', 'N Stage', 
+                '6th Stage', 'Grade', 'A Stage', 'Estrogen Status', 
+                'Progesterone Status']:
+        st.sidebar.write(f"- {col}")
 
 if __name__ == '__main__':
     main()
