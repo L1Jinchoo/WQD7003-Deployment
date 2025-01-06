@@ -21,21 +21,30 @@ def preprocess_data(df):
             label_encoders[col] = le
     
     # 独热编码
-    # 确保生成所有可能的类别
-    race_categories = ['Race_Black', 'Race_Other', 'Race_White']
-    marital_categories = ['Marital Status_Divorced', 'Marital Status_Married',
-                         'Marital Status_Separated', 'Marital Status_Single',
-                         'Marital Status_Widowed']
+    # 使用数字而不是具体状态名称
+    race_categories = ['Race_1', 'Race_2', 'Race_3']
+    marital_categories = ['Marital Status_1', 'Marital Status_2',
+                         'Marital Status_3', 'Marital Status_4',
+                         'Marital Status_5']
     
-    # 进行独热编码
+    # 进行独热编码并重命名列
     df = pd.get_dummies(df, columns=['Race', 'Marital Status'], dtype=int)
     
+    # 重命名列以匹配训练时的格式
+    rename_dict = {
+        'Race_Black': 'Race_1',
+        'Race_Other': 'Race_2',
+        'Race_White': 'Race_3',
+        'Marital Status_Divorced': 'Marital Status_1',
+        'Marital Status_Married': 'Marital Status_2',
+        'Marital Status_Separated': 'Marital Status_3',
+        'Marital Status_Single': 'Marital Status_4',
+        'Marital Status_Widowed': 'Marital Status_5'
+    }
+    df = df.rename(columns=rename_dict)
+    
     # 添加缺失的类别列，填充0
-    for cat in race_categories:
-        if cat not in df.columns:
-            df[cat] = 0
-            
-    for cat in marital_categories:
+    for cat in race_categories + marital_categories:
         if cat not in df.columns:
             df[cat] = 0
     
@@ -43,14 +52,6 @@ def preprocess_data(df):
     columns_to_drop = ['Regional Node Examined', 'Regional Node Positive', 
                       'Differentiate', 'Tumor Size (mm)', 'Survival Months']
     df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
-    
-    # 确保列的顺序与训练时一致
-    expected_columns = ['Age', 'T Stage', 'N Stage', '6th Stage', 'Grade', 
-                       'A Stage', 'Estrogen Status', 'Progesterone Status'] + \
-                      race_categories + marital_categories
-    
-    # 只选择需要的列，并按照预期顺序排列
-    df = df[expected_columns]
     
     return df
 
