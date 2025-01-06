@@ -13,44 +13,28 @@ def preprocess_data(df):
     # 标签编码
     ordered_columns = ['T Stage', 'Grade', 'N Stage', '6th Stage', 
                       'Estrogen Status', 'Progesterone Status', 'A Stage']
-    label_encoders = {}
     for col in ordered_columns:
         if col in df.columns:
             le = LabelEncoder()
             df[col] = le.fit_transform(df[col])
-            label_encoders[col] = le
     
-    # 独热编码
-    # 使用数字而不是具体状态名称
-    race_categories = ['Race_1', 'Race_2', 'Race_3']
-    marital_categories = ['Marital Status_1', 'Marital Status_2',
-                         'Marital Status_3', 'Marital Status_4',
-                         'Marital Status_5']
+    # 手动创建独热编码
+    # Race encoding
+    df['Race_1'] = (df['Race'] == 'Black').astype(int)
+    df['Race_2'] = (df['Race'] == 'Other').astype(int)
+    df['Race_3'] = (df['Race'] == 'White').astype(int)
     
-    # 进行独热编码并重命名列
-    df = pd.get_dummies(df, columns=['Race', 'Marital Status'], dtype=int)
+    # Marital Status encoding
+    df['Marital Status_1'] = (df['Marital Status'] == 'Divorced').astype(int)
+    df['Marital Status_2'] = (df['Marital Status'] == 'Married').astype(int)
+    df['Marital Status_3'] = (df['Marital Status'] == 'Separated').astype(int)
+    df['Marital Status_4'] = (df['Marital Status'] == 'Single').astype(int)
+    df['Marital Status_5'] = (df['Marital Status'] == 'Widowed').astype(int)
     
-    # 重命名列以匹配训练时的格式
-    rename_dict = {
-        'Race_Black': 'Race_1',
-        'Race_Other': 'Race_2',
-        'Race_White': 'Race_3',
-        'Marital Status_Divorced': 'Marital Status_1',
-        'Marital Status_Married': 'Marital Status_2',
-        'Marital Status_Separated': 'Marital Status_3',
-        'Marital Status_Single': 'Marital Status_4',
-        'Marital Status_Widowed': 'Marital Status_5'
-    }
-    df = df.rename(columns=rename_dict)
-    
-    # 添加缺失的类别列，填充0
-    for cat in race_categories + marital_categories:
-        if cat not in df.columns:
-            df[cat] = 0
-    
-    # 删除不需要的列
-    columns_to_drop = ['Regional Node Examined', 'Regional Node Positive', 
-                      'Differentiate', 'Tumor Size (mm)', 'Survival Months']
+    # 删除原始分类列和不需要的列
+    columns_to_drop = ['Race', 'Marital Status', 'Regional Node Examined', 
+                      'Regional Node Positive', 'Differentiate', 
+                      'Tumor Size (mm)', 'Survival Months']
     df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
     
     return df
